@@ -23,7 +23,10 @@ Optional environment variable:
 ```text
 CGPT_BRIDGE_CLI=C:\\path\\to\\codex-chatgpt-bridge\\dist\\cli.js
 CGPT_BROWSER_EXECUTABLE_PATH=C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe
+CGPT_CDP_URL=http://127.0.0.1:9222
 ```
+
+For the most reliable Google login, start a normal Chrome profile yourself with remote debugging, sign in to ChatGPT once, and set `CGPT_CDP_URL`. The bridge then attaches to that existing browser instead of creating an automated login profile.
 
 Restart Codex, type `/mcp` to confirm the server, then ask: “Use workforce_delegate to review this project.” The server is read/advice-only: it does not edit files or execute commands from ChatGPT.
 

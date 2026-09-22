@@ -32,12 +32,12 @@ export class ManualAdapter implements WorkforceAdapter {
 
 /** Adapter for the local codex-chatgpt-bridge CLI. It treats ChatGPT as advice only. */
 export class ChatGPTBridgeAdapter implements WorkforceAdapter {
-  constructor(private readonly cliPath: string, private readonly options: { node?: string; projectUrl?: string; channel?: string; executablePath?: string; timeoutMs?: number } = {}) {}
+  constructor(private readonly cliPath: string, private readonly options: { node?: string; projectUrl?: string; channel?: string; executablePath?: string; cdpUrl?: string; timeoutMs?: number } = {}) {}
   async delegate(task: DelegationTask): Promise<WorkerResult> {
     const args = [this.cliPath, 'ask', '--adapter', 'playwright', '--mode', task.kind === 'code' ? 'plan' : task.kind, '--question', task.objective, '--context', task.context];
     if (this.options.projectUrl) args.push('--project-url', this.options.projectUrl);
     if (this.options.channel) args.push('--channel', this.options.channel);
-    const env = this.options.executablePath ? { ...process.env, CGPT_BROWSER_EXECUTABLE_PATH: this.options.executablePath } : process.env;
+    const env = { ...process.env, ...(this.options.executablePath ? { CGPT_BROWSER_EXECUTABLE_PATH: this.options.executablePath } : {}), ...(this.options.cdpUrl ? { CGPT_CDP_URL: this.options.cdpUrl } : {}) };
     const { stdout } = await execFileAsync(this.options.node ?? process.execPath, args, { env, timeout: this.options.timeoutMs ?? 180_000, maxBuffer: 1024 * 1024 });
     const match = stdout.match(/^response:\s*(.+)$/m);
     if (!match) throw new Error(`Bridge did not complete a response. Output: ${compactContext(stdout, 2000)}`);
