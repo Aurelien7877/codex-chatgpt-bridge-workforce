@@ -2,6 +2,7 @@ node_modules/
 dist/
 .env
 .codex-workforce/
+.codex-workforce/cache/
 work/
 *.log
 .codex/

@@ -3,7 +3,7 @@ import { ChatGPTBridgeAdapter, ManualAdapter, Orchestrator, type TaskKind } from
 type Json = Record<string, unknown>;
 const bridgeCli = process.env.CGPT_BRIDGE_CLI;
 const adapter = bridgeCli ? new ChatGPTBridgeAdapter(bridgeCli, { projectUrl: process.env.CGPT_PROJECT_URL, channel: process.env.CGPT_BROWSER_CHANNEL, executablePath: process.env.CGPT_BROWSER_EXECUTABLE_PATH, cdpUrl: process.env.CGPT_CDP_URL }) : new ManualAdapter();
-const orchestrator = new Orchestrator(adapter, { adapter: bridgeCli ? 'http' : 'manual', budget: { maxTokens: Number(process.env.WORKFORCE_MAX_TOKENS ?? 4000), maxRetries: 1 }, redact: true });
+const orchestrator = new Orchestrator(adapter, { adapter: bridgeCli ? 'http' : 'manual', budget: { maxTokens: Number(process.env.WORKFORCE_MAX_TOKENS ?? 4000), maxRetries: 1 }, redact: true, cache: process.env.WORKFORCE_CACHE !== 'false', cacheDir: process.env.WORKFORCE_CACHE_DIR ?? undefined, cacheTtlMs: Number(process.env.WORKFORCE_CACHE_TTL_MS ?? 604800000), log: (event, data) => process.stderr.write(`${JSON.stringify({ event, ...data })}\n`) });
 
 function reply(id: unknown, result: Json) { process.stdout.write(`${JSON.stringify({ jsonrpc: '2.0', id, result })}\n`); }
 function error(id: unknown, message: string) { process.stdout.write(`${JSON.stringify({ jsonrpc: '2.0', id, error: { code: -32602, message } })}\n`); }

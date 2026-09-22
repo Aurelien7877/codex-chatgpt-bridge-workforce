@@ -2,13 +2,16 @@ import { randomUUID } from 'node:crypto';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { readFile } from 'node:fs/promises';
+import { createHash } from 'node:crypto';
+import { mkdir, readFile as readJsonFile, writeFile } from 'node:fs/promises';
+import path from 'node:path';
 
 export type TaskKind = 'code' | 'review' | 'debug' | 'research' | 'test';
 export type Status = 'ok' | 'needs_revision' | 'blocked' | 'failed';
 export interface Budget { maxTokens: number; maxRetries: number; }
 export interface DelegationTask { id: string; kind: TaskKind; objective: string; context: string; budget: Budget; }
 export interface WorkerResult { status: Status; summary: string[]; changes: string[]; tests: string[]; risks: string[]; next_action: string; }
-export interface WorkforceConfig { adapter: 'manual' | 'http'; endpoint?: string; budget: Budget; redact: boolean; }
+export interface WorkforceConfig { adapter: 'manual' | 'http'; endpoint?: string; budget: Budget; redact: boolean; cache?: boolean; cacheDir?: string; cacheTtlMs?: number; log?: (event: string, data: Record<string, unknown>) => void; }
 export interface WorkforceAdapter { delegate(task: DelegationTask): Promise<WorkerResult>; }
 const execFileAsync = promisify(execFile);
 
@@ -63,10 +66,25 @@ export class Orchestrator {
   async run(objective: string, context: string, kind: TaskKind = 'code'): Promise<WorkerResult> {
     const safe = this.config.redact ? redact(context) : context;
     const task = createTask(kind, objective, safe, this.config.budget);
+    const cacheKey = createHash('sha256').update(JSON.stringify({ kind, objective, context: task.context, budget: task.budget, version: 1 })).digest('hex');
+    const cacheDir = this.config.cacheDir ?? path.resolve('.codex-workforce', 'cache');
+    if (this.config.cache !== false) {
+      const cached = await readCache(cacheDir, cacheKey, this.config.cacheTtlMs ?? 7 * 24 * 60 * 60 * 1000);
+      if (cached) { this.config.log?.('delegation.cache_hit', { taskId: task.id, cacheKey }); return cached; }
+    }
     let lastError = '';
     for (let attempt = 0; attempt <= this.config.budget.maxRetries; attempt++) {
-      try { return validateResult(await this.adapter.delegate(task)); } catch (error) { lastError = String(error); }
+      try {
+        const result = validateResult(await this.adapter.delegate(task));
+        if (this.config.cache !== false && result.status !== 'failed') await writeCache(cacheDir, cacheKey, result);
+        return result;
+      } catch (error) { lastError = String(error); }
     }
     return { status: 'failed', summary: ['Worker response could not be validated.'], changes: [], tests: [], risks: [lastError], next_action: repairPrompt(task, lastError) };
   }
 }
+
+async function readCache(dir: string, key: string, ttlMs: number): Promise<WorkerResult | undefined> {
+  try { const stat = await (await import('node:fs/promises')).stat(path.join(dir, `${key}.json`)); if (Date.now() - stat.mtimeMs > ttlMs) return undefined; return validateResult(JSON.parse(await readJsonFile(path.join(dir, `${key}.json`), 'utf8'))); } catch { return undefined; }
+}
+async function writeCache(dir: string, key: string, result: WorkerResult): Promise<void> { await mkdir(dir, { recursive: true }); await writeFile(path.join(dir, `${key}.json`), JSON.stringify({ ...result, cached_at: new Date().toISOString() }, null, 2), 'utf8'); }

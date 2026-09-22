@@ -49,6 +49,8 @@ node dist/cli.js delegate --adapter bridge --kind review --objective "Review thi
 
 The bridge adapter invokes the existing local bridge, reads its structured response file, and still treats ChatGPT output as advice that Codex must verify. It never bypasses quotas or sends secrets.
 
+The MCP server caches redacted, structured results locally under `.codex-workforce/cache/` for seven days by default. Cache keys include the task kind, objective, compact context, budget and cache version. Set `WORKFORCE_CACHE=false` to disable it or `WORKFORCE_CACHE_TTL_MS` to change the TTL. The bundled `skill/codex-workforce` teaches Codex when to call `workforce_delegate` automatically.
+
 ## Security
 
 Only the explicit `workforce_delegate` and `workforce_health` tools are exposed. Inputs are compacted and common secrets are redacted. No arbitrary shell tool, file-write tool, browser credentials, tokens, private keys, `.env` files, `node_modules`, build output, or local audit clones are committed. Keep the bridge browser profile outside this repository.
