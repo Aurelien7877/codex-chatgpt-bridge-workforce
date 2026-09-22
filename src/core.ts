@@ -47,7 +47,7 @@ export class ChatGPTBridgeAdapter implements WorkforceAdapter {
 export function parseBridgeResponse(markdown: string): WorkerResult {
   const section = (name: string) => {
     const match = markdown.match(new RegExp(`(?:^|\\n)${name}:\\s*\\n([\\s\\S]*?)(?=\\n\\w[\\w_]*:|$)`, 'i'));
-    return (match?.[1] ?? '').split(/\\r?\\n/).map(line => line.replace(/^\\s*[-*]\\s*/, '').trim()).filter(Boolean);
+    return (match?.[1] ?? '').split(/\r?\n/).map(line => line.replace(/^\s*[-*]\s*/, '').trim()).filter(Boolean);
   };
   const verdict = markdown.match(/^verdict:\s*(proceed|revise|blocked)\s*$/im)?.[1];
   if (!verdict) throw new Error('Bridge response is missing verdict');
