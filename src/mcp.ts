@@ -2,7 +2,7 @@ import { ChatGPTBridgeAdapter, ManualAdapter, Orchestrator, type TaskKind } from
 
 type Json = Record<string, unknown>;
 const bridgeCli = process.env.CGPT_BRIDGE_CLI;
-const adapter = bridgeCli ? new ChatGPTBridgeAdapter(bridgeCli, { projectUrl: process.env.CGPT_PROJECT_URL, channel: process.env.CGPT_BROWSER_CHANNEL }) : new ManualAdapter();
+const adapter = bridgeCli ? new ChatGPTBridgeAdapter(bridgeCli, { projectUrl: process.env.CGPT_PROJECT_URL, channel: process.env.CGPT_BROWSER_CHANNEL, executablePath: process.env.CGPT_BROWSER_EXECUTABLE_PATH }) : new ManualAdapter();
 const orchestrator = new Orchestrator(adapter, { adapter: bridgeCli ? 'http' : 'manual', budget: { maxTokens: Number(process.env.WORKFORCE_MAX_TOKENS ?? 4000), maxRetries: 1 }, redact: true });
 
 function reply(id: unknown, result: Json) { process.stdout.write(`${JSON.stringify({ jsonrpc: '2.0', id, result })}\n`); }

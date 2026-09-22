@@ -22,6 +22,7 @@ Optional environment variable:
 
 ```text
 CGPT_BRIDGE_CLI=C:\\path\\to\\codex-chatgpt-bridge\\dist\\cli.js
+CGPT_BROWSER_EXECUTABLE_PATH=C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe
 ```
 
 Restart Codex, type `/mcp` to confirm the server, then ask: “Use workforce_delegate to review this project.” The server is read/advice-only: it does not edit files or execute commands from ChatGPT.
