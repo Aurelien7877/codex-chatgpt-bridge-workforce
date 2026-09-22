@@ -4,3 +4,8 @@ dist/
 .codex-workforce/
 work/
 *.log
+.codex/
+*.pem
+*.key
+credentials.json
+secrets.json
