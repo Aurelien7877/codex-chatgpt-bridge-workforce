@@ -24,11 +24,19 @@ Optional environment variable:
 CGPT_BRIDGE_CLI=C:\\path\\to\\codex-chatgpt-bridge\\dist\\cli.js
 CGPT_BROWSER_EXECUTABLE_PATH=C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe
 CGPT_CDP_URL=http://127.0.0.1:9222
+OPENCODE_MODEL=opencode/<free-model-id>
+WORKFORCE_CHEAP_KINDS=research,review,test
 ```
 
 For the most reliable Google login, start a normal Chrome profile yourself with remote debugging, sign in to ChatGPT once, and set `CGPT_CDP_URL`. The bridge then attaches to that existing browser instead of creating an automated login profile.
 
 Restart Codex, type `/mcp` to confirm the server, then ask: “Use workforce_delegate to review this project.” The server is read/advice-only: it does not edit files or execute commands from ChatGPT.
+
+### Optional OpenCode cheap lane
+
+Install and authenticate OpenCode separately, then verify it with `opencode models` and a small `opencode run` call. Set `OPENCODE_MODEL` to an available `provider/model` ID. When configured, bounded `research`, `review`, and `test` delegations use `opencode run --agent plan --format json`; `code` and `debug` remain on the premium bridge. OpenCode is not installed or authenticated by this project. Use only providers whose data policy is acceptable for the context you send.
+
+The adapter is deliberately advice-only: it does not attach files, does not enable `--auto`, and runs with a compact redacted prompt. If OpenCode is not configured, the existing bridge/manual behavior is unchanged.
 
 ## CLI quick start
 

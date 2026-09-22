@@ -22,4 +22,6 @@ Before delegation, send only redacted, compact context and state “do not modif
 
 Reuse cached results when the objective, task kind, relevant context, budget, and project snapshot are unchanged. Do not repeat a delegation after a timeout if the prompt may already have been sent; report the conversation URL or ask for a fresh read instead.
 
+When `OPENCODE_MODEL` is configured, the MCP server automatically routes bounded `research`, `review`, and `test` tasks to OpenCode with `opencode run --agent plan --format json`. This is the cheap lane: it must remain advice-only and must not receive secrets or whole-repository context. Keep `code` and `debug` on the premium bridge unless the user explicitly changes the policy. OpenCode is optional; if it is unavailable, do not silently duplicate the request or spend premium tokens without an explicit fallback setting.
+
 Keep delegation bounded: one request, one schema-repair retry, and a small token budget. Summarize the result before using it in the main task. If the workforce is unavailable, continue locally and say that the independent review was not obtained.

@@ -48,6 +48,37 @@ export class ChatGPTBridgeAdapter implements WorkforceAdapter {
   }
 }
 
+/** Advice-only adapter for OpenCode's non-interactive CLI. */
+export class OpenCodeAdapter implements WorkforceAdapter {
+  constructor(private readonly model: string, private readonly options: { command?: string; cwd?: string; timeoutMs?: number } = {}) {}
+  async delegate(task: DelegationTask): Promise<WorkerResult> {
+    const prompt = `You are a bounded workforce reviewer. Do not edit files, run commands, access tools, or request secrets. Return ONLY valid JSON with exactly these fields: status (ok|needs_revision|blocked|failed), summary (string[]), changes (string[]), tests (string[]), risks (string[]), next_action (string).\nTask kind: ${task.kind}\nObjective: ${task.objective}\nContext:\n${task.context}`;
+    const args = ['run', '--model', this.model, '--agent', 'plan', '--format', 'json', prompt];
+    const { stdout, stderr } = await execFileAsync(this.options.command ?? 'opencode', args, { cwd: this.options.cwd, timeout: this.options.timeoutMs ?? 120_000, maxBuffer: 2 * 1024 * 1024 });
+    try { return validateResult(parseJsonObject(extractOpenCodeText(stdout) || stdout)); }
+    catch (error) { throw new Error(`OpenCode returned no valid workforce JSON: ${String(error)}${stderr ? `; stderr: ${compactContext(stderr, 800)}` : ''}`); }
+  }
+}
+
+function extractOpenCodeText(output: string): string {
+  const texts: string[] = [];
+  for (const line of output.split(/\r?\n/)) {
+    try {
+      const value = JSON.parse(line) as Record<string, unknown>;
+      const walk = (item: unknown) => { if (!item || typeof item !== 'object') return; const record = item as Record<string, unknown>; if (typeof record.text === 'string') texts.push(record.text); for (const child of Object.values(record)) if (child && typeof child === 'object') walk(child); };
+      walk(value);
+    } catch { /* diagnostics may be mixed with JSON events */ }
+  }
+  return texts.join('\n');
+}
+function parseJsonObject(text: string): unknown { const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/i)?.[1]; const candidate = fenced ?? text.slice(text.indexOf('{'), text.lastIndexOf('}') + 1); if (!candidate || !candidate.includes('{')) throw new Error('JSON object not found'); return JSON.parse(candidate); }
+
+/** Routes bounded low-risk work to OpenCode, and everything else to the premium adapter. */
+export class WorkforceRouter implements WorkforceAdapter {
+  constructor(private readonly premium: WorkforceAdapter, private readonly cheap?: WorkforceAdapter, private readonly cheapKinds: readonly TaskKind[] = ['research', 'review', 'test']) {}
+  async delegate(task: DelegationTask): Promise<WorkerResult> { return this.cheap && this.cheapKinds.includes(task.kind) ? this.cheap.delegate(task) : this.premium.delegate(task); }
+}
+
 export function parseBridgeResponse(markdown: string): WorkerResult {
   const section = (name: string) => {
     const match = markdown.match(new RegExp(`(?:^|\\n)${name}:\\s*\\n([\\s\\S]*?)(?=\\n\\w[\\w_]*:|$)`, 'i'));
