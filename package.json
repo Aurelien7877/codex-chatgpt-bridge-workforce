@@ -1,0 +1,10 @@
+{
+  "name": "codex-workforce",
+  "version": "0.1.0",
+  "description": "Astra-led workforce orchestration for ChatGPT and Codex",
+  "type": "module",
+  "bin": { "codex-workforce": "dist/cli.js" },
+  "scripts": { "build": "tsc", "check": "tsc --noEmit", "test": "npm run build && node --test test/*.test.mjs", "lint": "eslint ." },
+  "engines": { "node": ">=20" },
+  "devDependencies": { "@types/node": "^22.0.0", "eslint": "^9.0.0", "typescript": "^5.0.0" }
+}
