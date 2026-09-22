@@ -1,4 +1,7 @@
 import { randomUUID } from 'node:crypto';
+import { execFile } from 'node:child_process';
+import { promisify } from 'node:util';
+import { readFile } from 'node:fs/promises';
 
 export type TaskKind = 'code' | 'review' | 'debug' | 'research' | 'test';
 export type Status = 'ok' | 'needs_revision' | 'blocked' | 'failed';
@@ -7,6 +10,7 @@ export interface DelegationTask { id: string; kind: TaskKind; objective: string;
 export interface WorkerResult { status: Status; summary: string[]; changes: string[]; tests: string[]; risks: string[]; next_action: string; }
 export interface WorkforceConfig { adapter: 'manual' | 'http'; endpoint?: string; budget: Budget; redact: boolean; }
 export interface WorkforceAdapter { delegate(task: DelegationTask): Promise<WorkerResult>; }
+const execFileAsync = promisify(execFile);
 
 const secretPatterns = [/(api[_-]?key\s*[:=]\s*)[^\s,]+/gi, /(token\s*[:=]\s*)[^\s,]+/gi, /(password\s*[:=]\s*)[^\s,]+/gi, /Bearer\s+[A-Za-z0-9._-]+/gi];
 export function redact(input: string): string { return secretPatterns.reduce((s, p) => s.replace(p, '$1[REDACTED]'), input); }
@@ -24,6 +28,33 @@ export function repairPrompt(task: DelegationTask, invalid: string): string { re
 export class ManualAdapter implements WorkforceAdapter {
   constructor(private readonly log = (event: string, data: unknown) => console.error(JSON.stringify({ event, ...data as object }))) {}
   async delegate(task: DelegationTask): Promise<WorkerResult> { this.log('delegation.created', { taskId: task.id, kind: task.kind }); return { status: 'blocked', summary: ['Manual adapter created the task packet.'], changes: [], tests: [], risks: ['No worker response was supplied.'], next_action: `Answer task ${task.id} using the generated packet.` }; }
+}
+
+/** Adapter for the local codex-chatgpt-bridge CLI. It treats ChatGPT as advice only. */
+export class ChatGPTBridgeAdapter implements WorkforceAdapter {
+  constructor(private readonly cliPath: string, private readonly options: { node?: string; projectUrl?: string; channel?: string; timeoutMs?: number } = {}) {}
+  async delegate(task: DelegationTask): Promise<WorkerResult> {
+    const args = [this.cliPath, 'ask', '--adapter', 'playwright', '--mode', task.kind === 'code' ? 'plan' : task.kind, '--question', task.objective, '--context', task.context];
+    if (this.options.projectUrl) args.push('--project-url', this.options.projectUrl);
+    if (this.options.channel) args.push('--channel', this.options.channel);
+    const { stdout } = await execFileAsync(this.options.node ?? process.execPath, args, { timeout: this.options.timeoutMs ?? 180_000, maxBuffer: 1024 * 1024 });
+    const match = stdout.match(/^response:\s*(.+)$/m);
+    if (!match) throw new Error(`Bridge did not complete a response. Output: ${compactContext(stdout, 2000)}`);
+    return parseBridgeResponse(await readFile(match[1].trim(), 'utf8'));
+  }
+}
+
+export function parseBridgeResponse(markdown: string): WorkerResult {
+  const section = (name: string) => {
+    const match = markdown.match(new RegExp(`(?:^|\\n)${name}:\\s*\\n([\\s\\S]*?)(?=\\n\\w[\\w_]*:|$)`, 'i'));
+    return (match?.[1] ?? '').split(/\\r?\\n/).map(line => line.replace(/^\\s*[-*]\\s*/, '').trim()).filter(Boolean);
+  };
+  const verdict = markdown.match(/^verdict:\s*(proceed|revise|blocked)\s*$/im)?.[1];
+  if (!verdict) throw new Error('Bridge response is missing verdict');
+  const summary = section('summary');
+  if (!summary.length) throw new Error('Bridge response is missing summary');
+  const next = markdown.match(/^next_action:\s*(.+)$/im)?.[1]?.trim();
+  return { status: verdict === 'proceed' ? 'ok' : verdict === 'revise' ? 'needs_revision' : 'blocked', summary, changes: section('changes'), tests: section('tests'), risks: section('risks'), next_action: next ?? 'Codex must review the advice before acting.' };
 }
 
 export class Orchestrator {

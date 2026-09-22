@@ -12,7 +12,14 @@ npm run build
 node dist/cli.js delegate --kind code --objective "Add a health endpoint"
 ```
 
-The MVP uses a manual adapter: it never automates a browser, bypasses quotas, or sends secrets. The provider adapter boundary is ready for a legitimate local ChatGPT bridge integration.
+Use the local bridge when it is installed and configured:
+
+```bash
+set CGPT_BRIDGE_CLI=C:\path\to\codex-chatgpt-bridge\dist\cli.js
+node dist/cli.js delegate --adapter bridge --kind review --objective "Review this change" --context README.md
+```
+
+The bridge adapter invokes the existing local bridge, reads its structured response file, and still treats ChatGPT output as advice that Codex must verify. It never bypasses quotas or sends secrets.
 
 ## Task kinds
 
