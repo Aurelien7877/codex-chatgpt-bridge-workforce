@@ -16,7 +16,7 @@ Optimize for useful work per token, not maximum delegation:
 - Send a compact task packet: objective, constraints, relevant symbols or snippets, and the exact decision needed. Never send the whole repository, long logs, generated files, dependency trees, or conversation history.
 - Reuse existing summaries, cache entries, helpers, types, and policies before creating new context or abstractions. Summarize tool output once and pass the summary, not the raw transcript.
 - Ask for the smallest useful response: the required JSON schema, short bullets, concrete risks, and one next action. Do not request tutorials, repeated restatements, or speculative alternatives.
-- Use the cheapest suitable lane: OpenCode for bounded `research`/`review`/`test`, ChatGPT workforce for more uncertain proposals, and Astra only for architecture, arbitration, or final validation.
+- Use the cheapest suitable lane: OpenCode for bounded `research`/`review`/`test` and short, low-risk code proposals; ChatGPT workforce for larger or uncertain second opinions; Astra for architecture, arbitration, and final validation.
 - Stop after a sufficient answer. Do not call another worker merely to confirm an already clear result. Retry only for a malformed response, never to spend more budget chasing perfection.
 - Keep budgets proportional: small tasks get small context and token limits; increase them only when the worker demonstrates that the bounded packet is insufficient.
 
@@ -39,6 +39,8 @@ Before delegation, send only redacted, compact context and state “do not modif
 
 Reuse cached results when the objective, task kind, relevant context, budget, and project snapshot are unchanged. Do not repeat a delegation after a timeout if the prompt may already have been sent; report the conversation URL or ask for a fresh read instead.
 
-When `OPENCODE_MODEL` is configured, the MCP server automatically routes bounded `research`, `review`, and `test` tasks to OpenCode with `opencode run --agent plan --format json`. This is the cheap lane: it must remain advice-only and must not receive secrets or whole-repository context. Keep `code` and `debug` on the premium bridge unless the user explicitly changes the policy. OpenCode is optional; if it is unavailable, do not silently duplicate the request or spend premium tokens without an explicit fallback setting.
+When `OPENCODE_MODEL` is configured, the MCP server routes bounded `research`, `review`, and `test` tasks to OpenCode. Short code proposals may use OpenCode when the packet is under `WORKFORCE_OPENCODE_CODE_MAX_CHARS` and does not match the built-in risk guard. OpenCode runs in an empty temporary project with agent tools denied; it proposes, Codex applies and verifies. Never send whole-repository context or secrets. The requested route is configuration evidence, not proof of the upstream model that served the request. Do not automatically resend a failed provider call to another lane.
+
+Use `workforce_usage` to inspect the current MCP process session or the previous 7/30 days. It records workforce requests only. Provider token/cost values are included when present; the browser bridge uses a character-based estimate. Do not present these percentages as Codex account quota or total ChatGPT usage. Use the Codex app's Usage & billing view for account limits.
 
 Keep delegation bounded: one request, one schema-repair retry, and a small token budget. Summarize the result before using it in the main task. If the workforce is unavailable, continue locally and say that the independent review was not obtained.
